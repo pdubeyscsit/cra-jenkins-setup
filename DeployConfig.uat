@@ -1,0 +1,67 @@
+// DO NOT CHANGE THE PIPELINE WITHOUT APPROVAL
+pipeline {
+
+    environment {
+      // APPLICATION
+        AWS_ACCESS_KEY_ID = ""
+	AWS_DEFAULT_REGION = "ap-south-1"
+    BKTNAME = ""
+	BASEURL = "<backend-service-end-point>"             
+//      AWS_SECRET_ACCESS_KEY = "DO_NOT_PUT_SECRET_HERE"
+     }
+
+    agent any
+
+    stages {
+        stage ('Set Base URL') {
+            steps {
+                sh '''
+cat <<EOT > config.js
+const BASEURL = '$BASEURL';   
+
+module.exports = {
+    BASEURL
+}
+EOT
+                '''
+
+                sh 'echo "== config.js contents =="'
+                sh 'cat config.js'
+            }
+        }
+
+        stage ('Generate static files') {
+            steps {
+                sh '''
+                docker-compose -f deploy-compose.yml build node
+                docker-compose -f deploy-compose.yml up -d node
+                docker cp nc-${JOB_NAME:-local}_${BUILD_NUMBER:-1}:/app/public ./node-copy/
+                '''
+            }
+        }
+
+        stage ('Push to S3') {
+            steps {
+                sh '''
+                aws s3 sync ./node-copy/ s3://$BKTNAME --cache-control max-age=0
+                '''
+            }
+        }
+
+        stage ('Cleanup Docker environment') {
+            steps {
+                sh '''
+                rm -rvf ./node-copy
+                docker rm -f nc-${JOB_NAME:-local}_${BUILD_NUMBER:-1} || true
+                '''
+            }
+        }
+    }
+
+    post {
+         success {
+             echo 'Build is successful'
+             slackSend (color: '#00FF00', message: "SUCCESSFUL: Job '${env.JOB_NAME}' [${env.BUILD_NUMBER}] ||  [${env.GIT_BRANCH}] ||                      ${gitchangelog} (<${env.BUILD_URL}|Open>)")
+         }
+     }
+}

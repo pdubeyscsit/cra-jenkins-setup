@@ -1,0 +1,31 @@
+version: '3.2'
+
+services:
+  node:
+    build:
+      context: .
+      dockerfile: ./docker-build/Dockerfile.node
+    hostname: ui-01
+    image: nc-${JOB_NAME:-local}_${BUILD_NUMBER:-1}
+    container_name: nc-${JOB_NAME:-local}_${BUILD_NUMBER:-1}
+    restart: always
+    volumes:
+      - logs:/app/out/
+    ports:
+      - 8085
+    command: bash -c "pushstate-server build 8085"
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./docker-build/Dockerfile.nginx
+    image: nw-${JOB_NAME:-local}_${BUILD_NUMBER:-1}
+    container_name: nw-${JOB_NAME:-local}_${BUILD_NUMBER:-1}
+    ports:
+      - "8005:8003"
+    volumes:
+      - logs:/app/out/
+
+volumes:
+  logs:
+

@@ -1,0 +1,9 @@
+FROM nginx:1.13.5-alpine
+
+RUN mkdir -p /app/public /app/out && \
+    touch /app/out/nginx-access.log /app/out/nginx-error.log         
+COPY ./docker-build/configs/nginx.conf /etc/nginx/nginx.conf
+COPY ./docker-build/configs/default.conf /etc/nginx/conf.d/default.conf
+COPY ./node-copy/ /app/public/
+RUN nginx -t
+
